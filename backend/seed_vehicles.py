@@ -82,12 +82,36 @@ def seed_data():
     # 1. Get a dealer ID (Corrected to search for 'dealer' role specifically)
     profiles = supabase.table("profiles").select("id").eq("role", "dealer").limit(1).execute()
     
-    msg = "'profiles' table has no dealers. Please Sign Up as a Dealer in the app first."
     if not profiles.data:
-        print(f"Error: {msg}")
-        return
-
-    dealer_id = profiles.data[0]['id']
+        print("No dealer found in 'profiles'. Creating default demo dealer...")
+        demo_email = "dealer@autolink.com"
+        demo_password = "Password123!"
+        try:
+            # Create confirmed auth user
+            auth_user = supabase.auth.admin.create_user({
+                "email": demo_email,
+                "password": demo_password,
+                "email_confirm": True
+            })
+            dealer_id = auth_user.user.id
+            supabase.table("profiles").insert({
+                "id": dealer_id,
+                "role": "dealer",
+                "full_name": "AutoLink Premium Motors",
+                "address": "777 Grand Ave, San Francisco, CA",
+                "bank_details": "US89370400440532013000"
+            }).execute()
+            print(f"Created demo dealer: {demo_email} (Password: {demo_password})")
+        except Exception as e:
+            # Check if user already existed in auth
+            print(f"Notice during demo dealer creation: {e}")
+            profiles = supabase.table("profiles").select("id").eq("role", "dealer").limit(1).execute()
+            if not profiles.data:
+                print("Error: Could not retrieve or create a dealer.")
+                return
+            dealer_id = profiles.data[0]['id']
+    else:
+        dealer_id = profiles.data[0]['id']
     print(f"Using Dealer ID: {dealer_id}")
 
     # 2. CLEAR EXISTING VEHICLES for this dealer to prevent duplicates and broken links
